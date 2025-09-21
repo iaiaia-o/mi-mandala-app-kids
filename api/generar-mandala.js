@@ -21,7 +21,7 @@ class SeededRandom {
     }
 }
 
-// GENERADOR MEJORADO DE MANDALAS SIMÉTRICOS
+// GENERADOR FINAL DE MANDALAS SIMÉTRICOS CON MÚLTIPLES POLÍGONOS
 class MandalaGenerator {
     constructor(seed, colors) {
         this.seed = seed;
@@ -34,8 +34,8 @@ class MandalaGenerator {
     }
 
     generate() {
-        const numSlices = 6 + Math.floor(this.rng.random() * 7); // Entre 6 y 12 gajos
-        const numLayers = 3 + Math.floor(this.rng.random() * 3); // Entre 3 y 5 capas
+        const numSlices = 6 + Math.floor(this.rng.random() * 5); // Entre 6 y 10 gajos
+        const numLayers = 2 + Math.floor(this.rng.random() * 2); // 2 o 3 capas de formas
 
         for (let layer = 0; layer < numLayers; layer++) {
             this.generateSymmetricalLayer(layer, numLayers, numSlices);
@@ -46,51 +46,72 @@ class MandalaGenerator {
 
     generateSymmetricalLayer(layerIndex, totalLayers, numSlices) {
         const anglePerSlice = 360 / numSlices;
-        const shapesPerSlice = 1 + Math.floor(this.rng.random() * 2); // 1 o 2 tipos de forma por capa
-        const layerColor = this.colors[layerIndex % this.colors.length]; // Usamos un color por capa para más orden
+        
+        // Obtenemos un array de formas base (interior y exterior)
+        const baseShapes = this.generateBaseShapes(layerIndex, anglePerSlice);
+        
+        // Asignamos colores distintos para la parte interior y exterior
+        const innerColor = this.colors[layerIndex % this.colors.length];
+        const outerColor = this.colors[(layerIndex + 1) % this.colors.length];
+        const shapeColors = [innerColor, outerColor];
 
-        for (let shapeIndex = 0; shapeIndex < shapesPerSlice; shapeIndex++) {
-            const baseShapePath = this.generateBaseShape(layerIndex, shapeIndex, anglePerSlice);
-            
+        // Para cada tipo de forma (interior, exterior), creamos todas sus repeticiones
+        baseShapes.forEach((shapeData, shapeIndex) => {
             for (let i = 0; i < numSlices; i++) {
                 const rotation = i * anglePerSlice;
                 const pathId = `path-${layerIndex}-${shapeIndex}-${i}`;
 
                 this.paths.push({
                     id: pathId,
-                    d: baseShapePath,
+                    d: shapeData,
                     transform: `rotate(${rotation}, ${this.center}, ${this.center})`
                 });
-                // Hacemos que formas alternas dentro de una capa tengan un color ligeramente distinto para más variedad
-                const finalColor = (i % 2 === 0) ? layerColor : this.colors[(layerIndex + 1) % this.colors.length];
-                this.pathColors[pathId] = finalColor;
+                this.pathColors[pathId] = shapeColors[shapeIndex];
             }
-        }
+        });
     }
 
-    generateBaseShape(layerIndex, shapeIndex, angle) {
-        const minRadius = 25 + layerIndex * 30;
-        const maxRadius = minRadius + 20;
-        
-        const r1 = minRadius + this.rng.random() * (maxRadius - minRadius);
-        const r2 = minRadius + this.rng.random() * (maxRadius - minRadius);
-
+    // ¡NUEVA FUNCIÓN! Ahora genera MÚLTIPLES formas (interior y exterior) para cada pétalo
+    generateBaseShapes(layerIndex, angle) {
         const angleRad = angle * Math.PI / 180;
-        const halfAngleRad = angleRad / 2;
         
-        // Puntos de la forma
-        const p1x = this.center + Math.cos(0) * r1;
-        const p1y = this.center + Math.sin(0) * r1;
-        const p2x = this.center + Math.cos(angleRad) * r1;
-        const p2y = this.center + Math.sin(angleRad) * r1;
+        // Definimos dos radios: uno para el borde interior y otro para el exterior
+        const innerRadius = 40 + layerIndex * 40;
+        const outerRadius = innerRadius + 30 + this.rng.random() * 20;
 
-        // Puntos de control para curvas más interesantes
-        const cp1x = this.center + Math.cos(halfAngleRad) * (r2 + shapeIndex * 10);
-        const cp1y = this.center + Math.sin(halfAngleRad) * (r2 + shapeIndex * 10);
+        // Puntos del borde interior
+        const p1_inner = { x: this.center + innerRadius, y: this.center };
+        const p2_inner = { 
+            x: this.center + Math.cos(angleRad) * innerRadius,
+            y: this.center + Math.sin(angleRad) * innerRadius
+        };
+
+        // Puntos del borde exterior
+        const p1_outer = { x: this.center + outerRadius, y: this.center };
+        const p2_outer = { 
+            x: this.center + Math.cos(angleRad) * outerRadius,
+            y: this.center + Math.sin(angleRad) * outerRadius
+        };
+
+        // Puntos de control para las curvas
+        const cp_inner = {
+            x: this.center + Math.cos(angleRad / 2) * (innerRadius + this.rng.random() * 10),
+            y: this.center + Math.sin(angleRad / 2) * (innerRadius + this.rng.random() * 10)
+        };
+        const cp_outer = {
+            x: this.center + Math.cos(angleRad / 2) * (outerRadius - this.rng.random() * 10),
+            y: this.center + Math.sin(angleRad / 2) * (outerRadius - this.rng.random() * 10)
+        };
+
+        // Creamos los dos polígonos como strings de path SVG
+        const pathInterior = `M ${this.center},${this.center} L ${p1_inner.x},${p1_inner.y} Q ${cp_inner.x},${cp_inner.y} ${p2_inner.x},${p2_inner.y} Z`;
+        const pathExterior = `M ${p1_inner.x},${p1_inner.y} L ${p1_outer.x},${p1_outer.y} Q ${cp_outer.x},${cp_outer.y} ${p2_outer.x},${p2_outer.y} L ${p2_inner.x},${p2_inner.y} Q ${cp_inner.x},${cp_inner.y} ${p1_inner.x},${p1_inner.y} Z`;
         
-        return `M ${this.center},${this.center} L ${p1x},${p1y} Q ${cp1x},${cp1y} ${p2x},${p2y} Z`;
+        // Devolvemos un array con las dos formas
+        return [pathInterior, pathExterior];
     }
 }
+
 
 // Función handler de Vercel (sin cambios)
 export default function handler(request, response) {
