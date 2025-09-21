@@ -29,9 +29,7 @@ async function createMandala() {
 
     const response = await fetch('/api/generar-mandala', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ word: word, colors: selectedColors }),
     });
 
@@ -47,33 +45,28 @@ async function createMandala() {
     createPaintInterface();
 }
 
-// Crear display del mandala
+// Crear display del mandala original
 function createMandalaDisplay() {
     const container = document.getElementById('original-mandala');
     let svg = `<svg width="100%" height="100%" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">`;
     svg += `<rect width="100%" height="100%" fill="#FEFEFE"/>`;
-    
     mandalaData.paths.forEach(path => {
         const color = mandalaData.colors[path.id];
-        // Añadimos el atributo transform para las rotaciones
-        svg += `<path id="${path.id}" d="${path.d}" transform="${path.transform || ''}" fill="${color}" stroke="none" opacity="0.9"/>`;
+        svg += `<path id="${path.id}-orig" d="${path.d}" transform="${path.transform || ''}" fill="${color}" stroke="none" opacity="0.9"/>`;
     });
-
     svg += '</svg>';
     container.innerHTML = svg;
 }
 
-// --- LÓGICA DE PINTURA (MODIFICADA PARA EL ZOOM) ---
-
-// Reemplazamos la función paintShape por la lógica del zoom
+// Crear interfaz para pintar (ARREGLADO)
 function createPaintInterface() {
     const container = document.getElementById('paint-mandala');
     let svgContent = `<svg width="100%" height="100%" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">`;
     svgContent += `<rect width="100%" height="100%" fill="white"/>`;
 
     mandalaData.paths.forEach(path => {
-        // El onclick ahora llama a la función para abrir el zoom
-        svgContent += `<path id="${path.id}" d="${path.d}" transform="${path.transform || ''}" fill="white" stroke="#333" stroke-width="0.5" opacity="1" style="cursor: pointer;" onclick="openZoom('${path.id}', this.ownerSVGElement)"/>`;
+        // Volvemos al onclick original y simple que llama a paintShape
+        svgContent += `<path id="${path.id}" d="${path.d}" transform="${path.transform || ''}" fill="white" stroke="#333" stroke-width="0.5" opacity="1" style="cursor: pointer;" onclick="paintShape('${path.id}', this)"/>`;
     });
 
     svgContent += '</svg>';
@@ -81,56 +74,16 @@ function createPaintInterface() {
     createPaintPalette();
 }
 
-const zoomContainer = document.getElementById('zoom-container');
-const zoomMandalaContainer = document.getElementById('zoom-mandala');
-
-function openZoom(shapeId, originalSvg) {
-    const shapeElement = originalSvg.getElementById(shapeId);
-    if (!shapeElement) return;
-
-    // Calculamos la vista para centrar la forma que se ha tocado
-    const bbox = shapeElement.getBBox();
-    const viewBox = `${bbox.x - 20} ${bbox.y - 20} ${bbox.width + 40} ${bbox.height + 40}`;
-
-    // Clonamos el SVG para no perder los colores ya pintados
-    const clonedSvg = originalSvg.cloneNode(true);
-    clonedSvg.setAttribute('viewBox', viewBox);
-
-    // Hacemos que todas las formas sean "clickables" dentro del zoom
-    clonedSvg.querySelectorAll('path').forEach(path => {
-        path.onclick = () => applyColorAndClose(path.id);
-    });
-
-    zoomMandalaContainer.innerHTML = '';
-    zoomMandalaContainer.appendChild(clonedSvg);
-    zoomContainer.style.display = 'flex';
-}
-
-function applyColorAndClose(shapeId) {
-    const originalSvg = document.getElementById('paint-mandala').querySelector('svg');
-    const shapeToPaint = originalSvg.getElementById(shapeId);
-
+// Función para pintar (VUELVE LA VERSIÓN SIMPLE Y FUNCIONAL)
+function paintShape(shapeId, element) {
     if (currentTool === 'fill') {
-        shapeToPaint.setAttribute('fill', currentColor);
+        element.setAttribute('fill', currentColor);
         userPainting[shapeId] = currentColor;
     } else if (currentTool === 'erase') {
-        shapeToPaint.setAttribute('fill', 'white');
+        element.setAttribute('fill', 'white');
         delete userPainting[shapeId];
     }
-    
-    closeZoom();
 }
-
-function closeZoom() {
-    zoomContainer.style.display = 'none';
-}
-
-zoomContainer.addEventListener('click', (event) => {
-    if (event.target === zoomContainer) {
-        closeZoom();
-    }
-});
-
 
 // --- RESTO DE FUNCIONES (SIN CAMBIOS) ---
 
@@ -198,9 +151,7 @@ function createConfetti() {
             confetti.style.zIndex = '1000';
             confetti.style.animation = 'fall 3s linear forwards';
             document.body.appendChild(confetti);
-            setTimeout(() => {
-                confetti.remove();
-            }, 3000);
+            setTimeout(() => { confetti.remove(); }, 3000);
         }, i * 100);
     }
 }
@@ -217,7 +168,7 @@ function downloadImage() {
     img.onload = function() {
         ctx.drawImage(img, 0, 0);
         const link = document.createElement('a');
-        link.download = 'mi-mandala-vicente.png';
+        link.download = 'mi-mandala-junior.png';
         link.href = canvas.toDataURL();
         link.click();
     };
@@ -232,11 +183,5 @@ function restart() {
 }
 
 const style = document.createElement('style');
-style.textContent = `
-    @keyframes fall {
-        to {
-            transform: translateY(100vh) rotate(360deg);
-        }
-    }
-`;
+style.textContent = `@keyframes fall { to { transform: translateY(100vh) rotate(360deg); } }`;
 document.head.appendChild(style);
